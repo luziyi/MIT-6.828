@@ -21,15 +21,16 @@ struct Elf {
 	uint16_t e_shstrndx;
 };
 
-struct Proghdr {
-	uint32_t p_type;
-	uint32_t p_offset;
-	uint32_t p_va;
-	uint32_t p_pa;
-	uint32_t p_filesz;
-	uint32_t p_memsz;
-	uint32_t p_flags;
-	uint32_t p_align;
+struct Proghdr //描述程序段头的格式
+{
+	uint32_t p_type; //段类型
+	uint32_t p_offset; //段在文件中的偏移量
+	uint32_t p_va; //段的虚拟地址
+	uint32_t p_pa; //段的物理地址
+	uint32_t p_filesz; //段在文件中的大小
+	uint32_t p_memsz; //段在内存中的大小
+	uint32_t p_flags; //段标志
+	uint32_t p_align; //段对齐方式
 };
 
 struct Secthdr {

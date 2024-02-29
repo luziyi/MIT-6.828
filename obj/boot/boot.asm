@@ -94,9 +94,9 @@ seta20.2:
 
 00007c32 <protcseg>:
 
-  .code32                     # Assemble for 32-bit mode
+  .code32                     # Assemble for 32-bit mode 从这里编码设置为32位，此时计算机处于保护模式，可以访问1M以上的内存地址，所以必须切换编译为32位。
 protcseg:
-  # Set up the protected-mode data segment registers
+  # Set up the protected-mode data segment registers 设置保护模式下的数据段寄存器。
   movw    $PROT_MODE_DSEG, %ax    # Our data segment selector
     7c32:	66 b8 10 00          	mov    $0x10,%ax
   movw    %ax, %ds                # -> DS: Data Segment
@@ -110,11 +110,12 @@ protcseg:
   movw    %ax, %ss                # -> SS: Stack Segment
     7c3e:	8e d0                	mov    %eax,%ss
   
-  # Set up the stack pointer and call into C.
+  # Set up the stack pointer and call into C. 设置栈指针并调用C函数
   movl    $start, %esp
     7c40:	bc 00 7c 00 00       	mov    $0x7c00,%esp
   call bootmain
-    7c45:	e8 cf 00 00 00       	call   7d19 <bootmain>
+    7c45:	e8 cf 00 00 00       	call   7d19 <bootmain>  
+    ; 这里直接调用bootmain函数，回到/boot/main.c，在bootmain里面首先判断了磁盘中第一页的位置是不是有效的ELF文件。
 
 00007c4a <spin>:
 

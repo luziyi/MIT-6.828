@@ -40,24 +40,24 @@ bootmain(void)
 {
 	struct Proghdr *ph, *eph;
 
-	// read 1st page off disk
+	// read 1st page off disk 读取磁盘的第一页/扇区？
 	readseg((uint32_t) ELFHDR, SECTSIZE*8, 0);
 
-	// is this a valid ELF?
+	// is this a valid ELF? 判断是否是有效的ELF
 	if (ELFHDR->e_magic != ELF_MAGIC)
 		goto bad;
 
-	// load each program segment (ignores ph flags)
-	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
-	eph = ph + ELFHDR->e_phnum;
-	for (; ph < eph; ph++)
+	// load each program segment (ignores ph flags)加载各个程序段
+	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);//将 ph 指针设置为 ELF 文件头（ELFHDR）后面紧接着程序段头表（program header table）的位置。它将 ELF 文件头地址（ELFHDR）转换为 uint8_t 类型的指针，然后加上 ELF 文件头中的程序段头表的偏移量（e_phoff），最后将结果转换为 struct Proghdr 类型的指针，以便访问程序段头。
+	eph = ph + ELFHDR->e_phnum;//将 eph 指针设置为指向程序段头表的末尾。它通过将 ph 指针与程序段头表中的条目数（e_phnum）相加来实现
+	for (; ph < eph; ph++)//一个简单的 for 循环，它遍历了程序段头表中的每个条目
 		// p_pa is the load address of this segment (as well
 		// as the physical address)
-		readseg(ph->p_pa, ph->p_memsz, ph->p_offset);
+		readseg(ph->p_pa, ph->p_memsz, ph->p_offset);//调用 readseg 函数，将程序段从 ELF 文件中加载到内存中。它使用 ph->p_pa（段在物理内存中的地址）、ph->p_memsz（段在内存中的大小）和 ph->p_offset（段在 ELF 文件中的偏移量）作为参数。
 
 	// call the entry point from the ELF header
 	// note: does not return!
-	((void (*)(void)) (ELFHDR->e_entry))();
+	((void (*)(void)) (ELFHDR->e_entry))(); //函数指针调用，它调用了程序的入口点（entry point），启动程序的执行。它通过 ELFHDR->e_entry 获取入口点的地址，然后将其转换为函数指针类型并调用该函数。
 
 bad:
 	outw(0x8A00, 0x8A00);
