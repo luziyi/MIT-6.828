@@ -6,23 +6,24 @@ Disassembly of section .text:
 
 00007c00 <start>:
 .set CR0_PE_ON,      0x1         # protected mode enable flag
-
+; x86架构中，处理器有两种主要的工作模式，实模式和保护模式，这两种模式的切换是通过控制寄存器 CR0 的 PE 位来实现的。PE 位为 0 时，处理器工作在实模式下，PE 位为 1 时，处理器工作在保护模式下。保护模式下面，处理器可以访问超过 1MB 的物理内存，同时还可以使用分页机制来管理内存。而在实模式下，处理器只能访问 1MB 的物理内存，而且没有分页机制。
 .globl start
 start:
-  .code16                     # Assemble for 16-bit mode
+  .code16                     # Assemble for 16-bit mode 告诉汇编器将代码编译成适合在16位模式下执行的机器代码
   cli                         # Disable interrupts
     7c00:	fa                   	cli    
   cld                         # String operations increment  
     7c01:	fc                   	cld    
 
   # Set up the important data segment registers (DS, ES, SS).
+  ; 对数据段寄存器进行清零工作，将 DS、ES、SS 寄存器的值都设置为零。
   xorw    %ax,%ax             # Segment number zero
     7c02:	31 c0                	xor    %eax,%eax
-  movw    %ax,%ds             # -> Data Segment
+  movw    %ax,%ds             # -> Data Segment 数据段寄存器
     7c04:	8e d8                	mov    %eax,%ds
-  movw    %ax,%es             # -> Extra Segment
+  movw    %ax,%es             # -> Extra Segment 附加段寄存器
     7c06:	8e c0                	mov    %eax,%es
-  movw    %ax,%ss             # -> Stack Segment
+  movw    %ax,%ss             # -> Stack Segment 栈段寄存器
     7c08:	8e d0                	mov    %eax,%ss
 
 00007c0a <seta20.1>:
@@ -30,18 +31,25 @@ start:
   #   For backwards compatibility with the earliest PCs, physical
   #   address line 20 is tied low, so that addresses higher than
   #   1MB wrap around to zero by default.  This code undoes this.
+
+; 在早期的 PC 中，为了向后兼容性，物理地址线 20（A20 地址线）被固定为低电平，这样默认情况下，超过 1MB 的地址将会回绕到零。这种设置使得在早期的 PC 中无法直接寻址超过 1MB 的物理内存。
+
+; 为了解决这个问题，需要启用 A20 地址线。通过启用 A20 地址线，系统就可以直接寻址超过 1MB 的物理内存，而不会发生地址回绕到零的情况。
+
+; 启用 A20 地址线的具体方法会涉及到向键盘控制器发送特定的命令。在操作系统启动或者引导过程中，通常会执行相关的代码来确保 A20 地址线被正确地启用。
+
 seta20.1:
   inb     $0x64,%al               # Wait for not busy
-    7c0a:	e4 64                	in     $0x64,%al
+    7c0a:	e4 64                	in     $0x64,%al # 从 0x64 端口读取一个字节的数据，端口 0x64 是键盘控制器的状态寄存器端口
   testb   $0x2,%al
-    7c0c:	a8 02                	test   $0x2,%al
+    7c0c:	a8 02                	test   $0x2,%al  # 测试 AL 寄存器的第 2 位（即 AL 寄存器的第 2 位是否为 1） ，为什么要测试第 2 位呢？因为键盘控制器的状态寄存器的第 2 位是键盘控制器的输入缓冲区状态位，当键盘控制器的输入缓冲区为空时，该位为 0，否则为 1。 如果键盘控制器的输入缓冲区为空，说明键盘控制器已经准备好接收数据了。跳转到 seta20.1 标号处继续执行。
   jnz     seta20.1
     7c0e:	75 fa                	jne    7c0a <seta20.1>
 
   movb    $0xd1,%al               # 0xd1 -> port 0x64
     7c10:	b0 d1                	mov    $0xd1,%al
   outb    %al,$0x64
-    7c12:	e6 64                	out    %al,$0x64
+    7c12:	e6 64                	out    %al,$0x64 ;out %al, $0x64 指示处理器将 AL 寄存器中的内容写入到端口 0x64 中，通常用于与硬件设备进行交互，例如向键盘控制器发送命令或者数据。
 
 00007c14 <seta20.2>:
 
@@ -62,6 +70,12 @@ seta20.2:
   # and segment translation that makes virtual addresses 
   # identical to their physical addresses, so that the 
   # effective memory map does not change during the switch.
+
+; 创建一个适当的 GDT：在保护模式下，必须创建一个 GDT，其中包含一些描述符，如代码段描述符、数据段描述符等。这些描述符定义了不同段（如代码段、数据段、堆栈段等）的基地址、段限制、权限等信息。
+; 加载 GDT：在切换到保护模式之前，必须将创建的 GDT 加载到处理器中。这通常通过将 GDT 的地址和大小加载到 GDTR 寄存器中来完成。
+; 切换到保护模式：在设置好 GDT 后，使用 MOV 指令将控制寄存器 CR0 中的保护模式位设置为 1，从而将处理器切换到保护模式。
+; 启用分段机制：在保护模式下，段寄存器的行为与实模式有所不同。在切换到保护模式后，需要设置段选择器以使用新的 GDT 中的描述符。
+
   lgdt    gdtdesc
     7c1e:	0f 01 16             	lgdtl  (%esi)
     7c21:	64 7c 0f             	fs jl  7c33 <protcseg+0x1>
