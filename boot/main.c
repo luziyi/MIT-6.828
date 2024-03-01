@@ -57,7 +57,7 @@ bootmain(void)
 
 	// call the entry point from the ELF header
 	// note: does not return!
-	((void (*)(void)) (ELFHDR->e_entry))(); //函数指针调用，它调用了程序的入口点（entry point），启动程序的执行。它通过 ELFHDR->e_entry 获取入口点的地址，然后将其转换为函数指针类型并调用该函数。
+	((void (*)(void)) (ELFHDR->e_entry))(); //函数指针调用，它调用了程序的入口点（entry point），启动程序的执行。它通过 ELFHDR->e_entry 获取入口点的地址，然后将其转换为函数指针类型并调用该函数。这个入口点是ELFHEADER中找到的。
 
 bad:
 	outw(0x8A00, 0x8A00);

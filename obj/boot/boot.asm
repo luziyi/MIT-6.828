@@ -6,24 +6,23 @@ Disassembly of section .text:
 
 00007c00 <start>:
 .set CR0_PE_ON,      0x1         # protected mode enable flag
-; x86架构中，处理器有两种主要的工作模式，实模式和保护模式，这两种模式的切换是通过控制寄存器 CR0 的 PE 位来实现的。PE 位为 0 时，处理器工作在实模式下，PE 位为 1 时，处理器工作在保护模式下。保护模式下面，处理器可以访问超过 1MB 的物理内存，同时还可以使用分页机制来管理内存。而在实模式下，处理器只能访问 1MB 的物理内存，而且没有分页机制。
+
 .globl start
 start:
-  .code16                     # Assemble for 16-bit mode 告诉汇编器将代码编译成适合在16位模式下执行的机器代码
+  .code16                     # Assemble for 16-bit mode
   cli                         # Disable interrupts
     7c00:	fa                   	cli    
-  cld                         # String operations increment  
+  cld                         # String operations increment
     7c01:	fc                   	cld    
 
   # Set up the important data segment registers (DS, ES, SS).
-  ; 对数据段寄存器进行清零工作，将 DS、ES、SS 寄存器的值都设置为零。
   xorw    %ax,%ax             # Segment number zero
     7c02:	31 c0                	xor    %eax,%eax
-  movw    %ax,%ds             # -> Data Segment 数据段寄存器
+  movw    %ax,%ds             # -> Data Segment
     7c04:	8e d8                	mov    %eax,%ds
-  movw    %ax,%es             # -> Extra Segment 附加段寄存器
+  movw    %ax,%es             # -> Extra Segment
     7c06:	8e c0                	mov    %eax,%es
-  movw    %ax,%ss             # -> Stack Segment 栈段寄存器
+  movw    %ax,%ss             # -> Stack Segment
     7c08:	8e d0                	mov    %eax,%ss
 
 00007c0a <seta20.1>:
@@ -31,25 +30,18 @@ start:
   #   For backwards compatibility with the earliest PCs, physical
   #   address line 20 is tied low, so that addresses higher than
   #   1MB wrap around to zero by default.  This code undoes this.
-
-; 在早期的 PC 中，为了向后兼容性，物理地址线 20（A20 地址线）被固定为低电平，这样默认情况下，超过 1MB 的地址将会回绕到零。这种设置使得在早期的 PC 中无法直接寻址超过 1MB 的物理内存。
-
-; 为了解决这个问题，需要启用 A20 地址线。通过启用 A20 地址线，系统就可以直接寻址超过 1MB 的物理内存，而不会发生地址回绕到零的情况。
-
-; 启用 A20 地址线的具体方法会涉及到向键盘控制器发送特定的命令。在操作系统启动或者引导过程中，通常会执行相关的代码来确保 A20 地址线被正确地启用。
-
 seta20.1:
   inb     $0x64,%al               # Wait for not busy
-    7c0a:	e4 64                	in     $0x64,%al # 从 0x64 端口读取一个字节的数据，端口 0x64 是键盘控制器的状态寄存器端口
+    7c0a:	e4 64                	in     $0x64,%al
   testb   $0x2,%al
-    7c0c:	a8 02                	test   $0x2,%al  # 测试 AL 寄存器的第 2 位（即 AL 寄存器的第 2 位是否为 1） ，为什么要测试第 2 位呢？因为键盘控制器的状态寄存器的第 2 位是键盘控制器的输入缓冲区状态位，当键盘控制器的输入缓冲区为空时，该位为 0，否则为 1。 如果键盘控制器的输入缓冲区为空，说明键盘控制器已经准备好接收数据了。跳转到 seta20.1 标号处继续执行。
+    7c0c:	a8 02                	test   $0x2,%al
   jnz     seta20.1
     7c0e:	75 fa                	jne    7c0a <seta20.1>
 
   movb    $0xd1,%al               # 0xd1 -> port 0x64
     7c10:	b0 d1                	mov    $0xd1,%al
   outb    %al,$0x64
-    7c12:	e6 64                	out    %al,$0x64 ;out %al, $0x64 指示处理器将 AL 寄存器中的内容写入到端口 0x64 中，通常用于与硬件设备进行交互，例如向键盘控制器发送命令或者数据。
+    7c12:	e6 64                	out    %al,$0x64
 
 00007c14 <seta20.2>:
 
@@ -70,12 +62,6 @@ seta20.2:
   # and segment translation that makes virtual addresses 
   # identical to their physical addresses, so that the 
   # effective memory map does not change during the switch.
-
-; 创建一个适当的 GDT：在保护模式下，必须创建一个 GDT，其中包含一些描述符，如代码段描述符、数据段描述符等。这些描述符定义了不同段（如代码段、数据段、堆栈段等）的基地址、段限制、权限等信息。
-; 加载 GDT：在切换到保护模式之前，必须将创建的 GDT 加载到处理器中。这通常通过将 GDT 的地址和大小加载到 GDTR 寄存器中来完成。
-; 切换到保护模式：在设置好 GDT 后，使用 MOV 指令将控制寄存器 CR0 中的保护模式位设置为 1，从而将处理器切换到保护模式。
-; 启用分段机制：在保护模式下，段寄存器的行为与实模式有所不同。在切换到保护模式后，需要设置段选择器以使用新的 GDT 中的描述符。
-
   lgdt    gdtdesc
     7c1e:	0f 01 16             	lgdtl  (%esi)
     7c21:	64 7c 0f             	fs jl  7c33 <protcseg+0x1>
@@ -94,9 +80,9 @@ seta20.2:
 
 00007c32 <protcseg>:
 
-  .code32                     # Assemble for 32-bit mode 从这里编码设置为32位，此时计算机处于保护模式，可以访问1M以上的内存地址，所以必须切换编译为32位。
+  .code32                     # Assemble for 32-bit mode
 protcseg:
-  # Set up the protected-mode data segment registers 设置保护模式下的数据段寄存器。
+  # Set up the protected-mode data segment registers
   movw    $PROT_MODE_DSEG, %ax    # Our data segment selector
     7c32:	66 b8 10 00          	mov    $0x10,%ax
   movw    %ax, %ds                # -> DS: Data Segment
@@ -110,12 +96,11 @@ protcseg:
   movw    %ax, %ss                # -> SS: Stack Segment
     7c3e:	8e d0                	mov    %eax,%ss
   
-  # Set up the stack pointer and call into C. 设置栈指针并调用C函数
+  # Set up the stack pointer and call into C.
   movl    $start, %esp
     7c40:	bc 00 7c 00 00       	mov    $0x7c00,%esp
   call bootmain
-    7c45:	e8 cf 00 00 00       	call   7d19 <bootmain>  
-    ; 这里直接调用bootmain函数，回到/boot/main.c，在bootmain里面首先判断了磁盘中第一页的位置是不是有效的ELF文件。
+    7c45:	e8 cf 00 00 00       	call   7d19 <bootmain>
 
 00007c4a <spin>:
 
@@ -294,31 +279,31 @@ outb(int port, uint8_t data)
     7d33:	81 3d 00 00 01 00 7f 	cmpl   $0x464c457f,0x10000
     7d3a:	45 4c 46 
     7d3d:	75 38                	jne    7d77 <bootmain+0x5e>
-	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
+	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);//将 ph 指针设置为 ELF 文件头（ELFHDR）后面紧接着程序段头表（program header table）的位置。它将 ELF 文件头地址（ELFHDR）转换为 uint8_t 类型的指针，然后加上 ELF 文件头中的程序段头表的偏移量（e_phoff），最后将结果转换为 struct Proghdr 类型的指针，以便访问程序段头。
     7d3f:	a1 1c 00 01 00       	mov    0x1001c,%eax
-	eph = ph + ELFHDR->e_phnum;
+	eph = ph + ELFHDR->e_phnum;//将 eph 指针设置为指向程序段头表的末尾。它通过将 ph 指针与程序段头表中的条目数（e_phnum）相加来实现
     7d44:	0f b7 35 2c 00 01 00 	movzwl 0x1002c,%esi
-	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
+	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);//将 ph 指针设置为 ELF 文件头（ELFHDR）后面紧接着程序段头表（program header table）的位置。它将 ELF 文件头地址（ELFHDR）转换为 uint8_t 类型的指针，然后加上 ELF 文件头中的程序段头表的偏移量（e_phoff），最后将结果转换为 struct Proghdr 类型的指针，以便访问程序段头。
     7d4b:	8d 98 00 00 01 00    	lea    0x10000(%eax),%ebx
-	eph = ph + ELFHDR->e_phnum;
+	eph = ph + ELFHDR->e_phnum;//将 eph 指针设置为指向程序段头表的末尾。它通过将 ph 指针与程序段头表中的条目数（e_phnum）相加来实现
     7d51:	c1 e6 05             	shl    $0x5,%esi
     7d54:	01 de                	add    %ebx,%esi
-	for (; ph < eph; ph++)
+	for (; ph < eph; ph++)//一个简单的 for 循环，它遍历了程序段头表中的每个条目
     7d56:	39 f3                	cmp    %esi,%ebx
     7d58:	73 17                	jae    7d71 <bootmain+0x58>
-		readseg(ph->p_pa, ph->p_memsz, ph->p_offset);
+		readseg(ph->p_pa, ph->p_memsz, ph->p_offset);//调用 readseg 函数，将程序段从 ELF 文件中加载到内存中。它使用 ph->p_pa（段在物理内存中的地址）、ph->p_memsz（段在内存中的大小）和 ph->p_offset（段在 ELF 文件中的偏移量）作为参数。
     7d5a:	50                   	push   %eax
-	for (; ph < eph; ph++)
+	for (; ph < eph; ph++)//一个简单的 for 循环，它遍历了程序段头表中的每个条目
     7d5b:	83 c3 20             	add    $0x20,%ebx
-		readseg(ph->p_pa, ph->p_memsz, ph->p_offset);
+		readseg(ph->p_pa, ph->p_memsz, ph->p_offset);//调用 readseg 函数，将程序段从 ELF 文件中加载到内存中。它使用 ph->p_pa（段在物理内存中的地址）、ph->p_memsz（段在内存中的大小）和 ph->p_offset（段在 ELF 文件中的偏移量）作为参数。
     7d5e:	ff 73 e4             	push   -0x1c(%ebx)
     7d61:	ff 73 f4             	push   -0xc(%ebx)
     7d64:	ff 73 ec             	push   -0x14(%ebx)
     7d67:	e8 6e ff ff ff       	call   7cda <readseg>
-	for (; ph < eph; ph++)
+	for (; ph < eph; ph++)//一个简单的 for 循环，它遍历了程序段头表中的每个条目
     7d6c:	83 c4 10             	add    $0x10,%esp
     7d6f:	eb e5                	jmp    7d56 <bootmain+0x3d>
-	((void (*)(void)) (ELFHDR->e_entry))();
+	((void (*)(void)) (ELFHDR->e_entry))(); //函数指针调用，它调用了程序的入口点（entry point），启动程序的执行。它通过 ELFHDR->e_entry 获取入口点的地址，然后将其转换为函数指针类型并调用该函数。这个入口点是ELFHEADER中找到的。
     7d71:	ff 15 18 00 01 00    	call   *0x10018
 }
 
