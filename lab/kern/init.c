@@ -37,6 +37,10 @@ i386_init(void)
 
 	// Test the stack backtrace function (lab 1 only)
 	test_backtrace(5);
+	
+	// lab1_exercise8_4:
+    unsigned int i = 0x00646c72;
+    cprintf("H%x Wo%s", 57616, &i);
 
 	// Drop into the kernel monitor.
 	while (1)
