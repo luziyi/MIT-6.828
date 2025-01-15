@@ -106,7 +106,7 @@ boot_alloc(uint32_t n)
 	result = nextfree;
 	if(n > 0)
 		nextfree = ROUNDUP(result+n, PGSIZE);
-	cprintf("boot_alloc memory at %x, next memory allocate at %x\n", result, nextfree);
+	// cprintf("boot_alloc memory at %x, next memory allocate at %x\n", result, nextfree);
 	return result;
 }
 
@@ -183,7 +183,11 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U);
+	boot_map_region(kern_pgdir, 
+					UPAGES, 
+					ROUNDUP((sizeof(struct PageInfo)*npages), PGSIZE),
+					PADDR(pages),
+					PTE_U );
 
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -204,7 +208,11 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
+	boot_map_region(kern_pgdir, 
+					KSTACKTOP-KSTKSIZE, 
+					KSTKSIZE,
+					PADDR(bootstack),
+					PTE_W );
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -214,7 +222,13 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir, KERNBASE, 0xffffffff - KERNBASE, 0, PTE_W);
+	uint32_t kern_size = ROUNDUP((0xFFFFFFFF-KERNBASE), PGSIZE);
+	// cprintf("size: %d   pages:%d\n", kern_size, kern_size/PGSIZE);
+	boot_map_region(kern_pgdir, 
+				(uintptr_t) KSTACKTOP, 
+				kern_size,
+				(physaddr_t)0, 
+				PTE_W );
 
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
@@ -311,19 +325,21 @@ struct PageInfo *
 page_alloc(int alloc_flags)
 {
 	// Fill this function in
-    if (page_free_list == NULL) {
-        cprintf("page_alloc: out of free memory\n");
+    struct PageInfo* pp;
+    if (!page_free_list) {
+		// cprintf("page_alloc: out of memory\n");
         return NULL;
     }
-
-	struct PageInfo *addr = page_free_list;
+    pp = page_free_list;
     page_free_list = page_free_list->pp_link;
-    addr->pp_link = NULL;
-
-	if (alloc_flags & ALLOC_ZERO) {
-        memset(page2kva(addr), 0, PGSIZE);
+    pp->pp_link = NULL;
+    
+    //page2kva 返回值 KernelBase + 物理页号<<PGSHIFT,  虚拟地址
+    if (alloc_flags & ALLOC_ZERO) {
+        void * va = page2kva(pp);
+        memset(va, '\0', PGSIZE);
     }
-    return addr;
+    return pp;
 }
 
 //
@@ -336,9 +352,8 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
-	if (pp->pp_ref != 0 || pp->pp_link != NULL) {
-		panic("page_free: can not free the memory");
-		return;
+	if(pp->pp_link || pp->pp_ref) {
+		panic("pp->pp_ref is nonzero or pp->pp_link is not NULL\n");
 	}
 	pp->pp_link = page_free_list;
 	page_free_list = pp;
